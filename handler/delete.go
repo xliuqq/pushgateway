@@ -65,3 +65,54 @@ func Delete(ms storage.MetricStore, jobBase64Encoded bool, logger *slog.Logger) 
 		instrumentedHandler.ServeHTTP(w, r)
 	}
 }
+
+func getAllLabelsForJob(ms storage.MetricStore, jobName string) []map[string]string {
+	familyMaps := ms.GetMetricFamiliesMap()
+	var res []map[string]string
+	for _, v := range familyMaps {
+		currentLabels := v.Labels
+		if jobName == currentLabels["job"] {
+			res = append(res, currentLabels)
+		}
+	}
+	return res
+}
+
+// DeleteJob returns a handler that accepts delete requests for specific job.
+//
+// The returned handler is already instrumented for Prometheus.
+func DeleteJob(ms storage.MetricStore, jobBase64Encoded bool, logger *slog.Logger) func(http.ResponseWriter, *http.Request) {
+	instrumentedHandler := InstrumentWithCounter(
+		"delete_all",
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			job := route.Param(r.Context(), "job")
+			if jobBase64Encoded {
+				var err error
+				if job, err = decodeBase64(job); err != nil {
+					http.Error(w, fmt.Sprintf("invalid base64 encoding in job name %q: %v", job, err), http.StatusBadRequest)
+					logger.Debug("invalid base64 encoding in job name", "job", job, "err", err.Error())
+					return
+				}
+			}
+
+			if job == "" {
+				http.Error(w, "job name is required", http.StatusBadRequest)
+				logger.Debug("job name is required")
+				return
+			}
+
+			var allLabels = getAllLabelsForJob(ms, job)
+			for _, labels := range allLabels {
+				ms.SubmitWriteRequest(storage.WriteRequest{
+					Labels:    labels,
+					Timestamp: time.Now(),
+				})
+			}
+			w.WriteHeader(http.StatusAccepted)
+		}),
+	)
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		instrumentedHandler.ServeHTTP(w, r)
+	}
+}

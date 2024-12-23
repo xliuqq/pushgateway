@@ -131,6 +131,9 @@ func main() {
 		r.Put(pushAPIPath+"/job"+suffix+"/:job", handler.Push(ms, true, !*pushUnchecked, jobBase64Encoded, logger))
 		r.Post(pushAPIPath+"/job"+suffix+"/:job", handler.Push(ms, false, !*pushUnchecked, jobBase64Encoded, logger))
 		r.Del(pushAPIPath+"/job"+suffix+"/:job", handler.Delete(ms, jobBase64Encoded, logger))
+
+		// delete a job with all grouping keys.
+		r.Del(pushAPIPath+"/job_all"+suffix+"/:job", handler.DeleteJob(ms, jobBase64Encoded, logger))
 	}
 	r.Get(*routePrefix+"/static/*filepath", handler.Static(asset.Assets, *routePrefix).ServeHTTP)
 
