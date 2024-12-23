@@ -525,6 +525,41 @@ func TestDelete(t *testing.T) {
 
 }
 
+func TestDeleteAll(t *testing.T) {
+	mms := MockMetricStore{}
+	handler := DeleteJob(&mms, false, logger)
+	req := &http.Request{}
+	var params map[string]string
+
+	// No job name.
+	mms.lastWriteRequest = storage.WriteRequest{}
+	w := httptest.NewRecorder()
+	params = map[string]string{}
+	handler(w, req.WithContext(ctxWithParams(params, req)))
+	if expected, got := http.StatusBadRequest, w.Code; expected != got {
+		t.Errorf("Wanted status code %v, got %v.", expected, got)
+	}
+	if !mms.lastWriteRequest.Timestamp.IsZero() {
+		t.Errorf("Write request timestamp unexpectedly set: %#v", mms.lastWriteRequest)
+	}
+
+	// With job name.
+	mms.lastWriteRequest = storage.WriteRequest{}
+	w = httptest.NewRecorder()
+
+	params = map[string]string{
+		"job": "testjob",
+	}
+
+	handler(w, req.WithContext(ctxWithParams(params, req)))
+	if expected, got := http.StatusAccepted, w.Code; expected != got {
+		t.Errorf("Wanted status code %v, got %v.", expected, got)
+	}
+	if !mms.lastWriteRequest.Timestamp.IsZero() {
+		t.Errorf("Should not has write request: %#v", mms.lastWriteRequest)
+	}
+}
+
 func TestSplitLabels(t *testing.T) {
 	scenarios := map[string]struct {
 		input          string
