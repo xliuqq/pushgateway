@@ -102,6 +102,7 @@ func DeleteJob(ms storage.MetricStore, jobBase64Encoded bool, logger *slog.Logge
 			}
 
 			var allLabels = getAllLabelsForJob(ms, job)
+			logger.Debug("deleting job", "job", job, "labels", allLabels)
 			for _, labels := range allLabels {
 				ms.SubmitWriteRequest(storage.WriteRequest{
 					Labels:    labels,
